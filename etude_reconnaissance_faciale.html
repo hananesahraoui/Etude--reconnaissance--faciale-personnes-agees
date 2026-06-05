@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Étude — Reconnaissance des émotions faciales</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#f4f6f9;color:#1a1a2e}
+.hdr{background:#1a3a5c;padding:10px 16px;display:flex;align-items:center;justify-content:space-between}
+.hdr-title{font-size:14px;font-weight:bold;color:white}
+.hdr-sub{font-size:11px;color:#aaddff;margin-top:2px}
+.sync{font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid #ccc;color:#555;background:white}
+.sync.ok{background:#d4edda;color:#155724;border-color:#c3e6cb}
+.sync.saving{background:#fff3cd;color:#856404;border-color:#ffeeba}
+.tabs{display:flex;border-bottom:1px solid #dee2e6;background:white;overflow-x:auto}
+.tab{padding:9px 16px;font-size:12px;cursor:pointer;color:#666;border-bottom:2px solid transparent;white-space:nowrap}
+.tab.on{color:#0056b3;border-bottom-color:#0056b3;font-weight:bold}
+.sec{display:none;padding:14px 16px;max-width:1100px}
+.sec.on{display:block}
+.card{background:white;border:1px solid #dee2e6;border-radius:8px;padding:14px 16px;margin-bottom:12px}
+.ctitle{font-size:13px;font-weight:bold;color:#1a3a5c;margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid #eee}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.fld{display:flex;flex-direction:column;gap:4px}
+.fld label{font-size:11px;color:#666}
+.fld input,.fld select,.fld textarea{font-size:13px;padding:6px 9px;border:1px solid #ced4da;border-radius:5px;background:white;color:#1a1a2e}
+.fld input:focus,.fld select:focus,.fld textarea:focus{outline:none;border-color:#0056b3;box-shadow:0 0 0 2px rgba(0,86,179,0.15)}
+.fld textarea{min-height:60px;resize:vertical}
+.alert-ex{background:#f8d7da;color:#721c24;border-radius:5px;padding:5px 10px;font-size:11px;display:none;margin-top:3px}
+.gbadge{padding:5px 12px;border-radius:5px;font-size:12px;font-weight:bold;display:inline-block;margin-top:4px}
+.sc-card{background:#f8f9fa;border-radius:6px;padding:12px;text-align:center}
+.sc-num{font-size:24px;font-weight:bold;color:#1a3a5c}
+.sc-lbl{font-size:11px;color:#666;margin-top:2px}
+.egrid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.ecard{border:1px solid #dee2e6;border-radius:6px;padding:9px 5px;text-align:center}
+.ename{font-size:11px;font-weight:bold;color:#1a3a5c;margin-bottom:2px}
+.ear{font-size:10px;color:#999;margin-bottom:5px}
+.ecard select{width:100%;font-size:11px;padding:3px 2px;border:1px solid #ced4da;border-radius:3px}
+.bar-wrap{height:6px;background:#e9ecef;border-radius:3px;margin-top:4px}
+.bar{height:100%;border-radius:3px;transition:width .3s}
+.total-box{padding:12px 16px;background:#e8f4fd;border-radius:7px;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border:1px solid #b8daff}
+.brow{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+button{padding:7px 16px;border-radius:5px;border:1px solid #ced4da;font-size:12px;cursor:pointer;background:white;color:#1a1a2e}
+button:hover{background:#f0f0f0}
+.bp{background:#0056b3;color:white;border-color:#0056b3;font-weight:bold}
+.bp:hover{background:#004494}
+.bs{background:#1a6b3c;color:white;border-color:#1a6b3c;font-weight:bold}
+.bs:hover{background:#145530}
+.bd{background:#8b1a1a;color:white;border-color:#8b1a1a}
+.bd:hover{background:#6d1414}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{background:#f8f9fa;padding:7px 10px;text-align:left;font-weight:bold;color:#555;border-bottom:1px solid #dee2e6}
+td{padding:7px 10px;border-bottom:1px solid #f0f0f0;color:#1a1a2e}
+tr:hover td{background:#f8f9fa}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:bold}
+.b-ok{background:#d4edda;color:#155724}
+.b-no{background:#f8d7da;color:#721c24}
+.b-inf{background:#cce5ff;color:#004085}
+.b-gr{background:#d4edda;color:#155724}
+.cfg-info{background:#f8f9fa;border-radius:6px;padding:12px;font-size:12px;color:#555;margin-bottom:12px;line-height:2;border:1px solid #dee2e6}
+.status-ok{color:#155724;font-weight:bold}
+.status-err{color:#721c24;font-weight:bold}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div>
+    <div class="hdr-title">Étude — Reconnaissance des émotions faciales · Population rurale marocaine</div>
+    <div class="hdr-sub" id="hdr-sub">0 participant(s) enregistré(s)</div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <span class="sync" id="sync-badge">&#9729; Local</span>
+    <button onclick="exportCSV()" style="font-size:11px;padding:5px 12px">&#8659; CSV</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab on" onclick="goTab('fiche')">&#128100; Fiche</div>
+  <div class="tab" onclick="goTab('scores')">&#128065; Scores</div>
+  <div class="tab" onclick="goTab('base')">&#128451; Base</div>
+  <div class="tab" onclick="goTab('viz')">&#128202; Visualisations</div>
+  <div class="tab" onclick="goTab('cfg')">&#9881; Configuration JSONBin</div>
+</div>
+
+<!-- FICHE -->
+<div class="sec on" id="sec-fiche">
+  <div class="card">
+    <div class="ctitle">&#128268; Identification</div>
+    <div class="g3">
+      <div class="fld"><label>N° participant</label><input id="f-pid" readonly style="background:#e9ecef;font-weight:bold"></div>
+      <div class="fld"><label>Date passation</label><input type="date" id="f-date"></div>
+      <div class="fld"><label>Lieu passation</label><input id="f-lieu" placeholder="Douar / Village"></div>
+      <div class="fld"><label>Evaluateur</label><input id="f-eval" placeholder="Votre nom"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ctitle">&#128100; Données sociodémographiques — البيانات الاجتماعية</div>
+    <div class="g3">
+      <div class="fld"><label>Âge — العمر</label><input type="number" id="f-age" min="18" max="100" oninput="majG()"></div>
+      <div class="fld"><label>Sexe — الجنس</label>
+        <select id="f-sexe"><option value="">—</option><option>Homme — ذكر</option><option>Femme — أنثى</option></select></div>
+      <div class="fld"><label>État civil — الحالة</label>
+        <select id="f-etat"><option value="">—</option><option>Marié(e)</option><option>Célibataire</option><option>Veuf/Veuve</option><option>Divorcé(e)</option></select></div>
+      <div class="fld"><label>Lieu résidence — السكن</label><input id="f-res" placeholder="Douar / Commune"></div>
+      <div class="fld"><label>Province — الإقليم</label><input id="f-prov" placeholder="Ex: Khénifra"></div>
+      <div class="fld"><label>Vie avec — مع شكون</label>
+        <select id="f-vie"><option value="">—</option><option>Seul(e)</option><option>Avec conjoint(e)</option><option>Avec famille</option></select></div>
+    </div>
+    <div style="margin-top:10px">
+      <label style="font-size:11px;color:#666">Groupe — المجموعة</label>
+      <div id="gbadge" class="gbadge" style="background:#f8f9fa;color:#666">— selon l'âge —</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ctitle">&#127979; Alphabétisation — التعليم</div>
+    <div class="g3">
+      <div class="fld"><label>Alphabétisation</label>
+        <select id="f-alpha"><option value="">—</option><option>Analphabète — ما كيعرفش</option><option>Quelques mots — شوية</option><option>Lit/écrit arabe</option><option>Lit/écrit français</option></select></div>
+      <div class="fld"><label>Scolarisation</label>
+        <select id="f-scol"><option value="">—</option><option>0 — jamais</option><option>1–4 ans</option><option>5–6 ans</option><option>7–9 ans</option><option>10 ans et plus</option></select></div>
+      <div class="fld"><label>Langue principale</label>
+        <select id="f-lang"><option value="">—</option><option>Darija — الدارجة</option><option>Amazigh — الأمازيغية</option><option>Arabe classique</option></select></div>
+      <div class="fld"><label>Profession</label>
+        <select id="f-prof"><option value="">—</option><option>Agriculture/Élevage</option><option>Artisanat</option><option>Femme au foyer</option><option>Retraité(e)</option><option>Sans emploi</option><option>Autre</option></select></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ctitle">&#10084; Santé et critères d'exclusion — الصحة</div>
+    <div class="g3">
+      <div class="fld"><label>Santé générale</label>
+        <select id="f-sante"><option value="">—</option><option>Très bonne</option><option>Bonne</option><option>Moyenne</option><option>Mauvaise</option></select></div>
+      <div class="fld"><label>Vision — البصر</label>
+        <select id="f-vis" onchange="chkEx()"><option value="">—</option><option>Bonne</option><option>Corrigée (lunettes)</option><option value="x">Très réduite ⚠</option></select>
+        <div class="alert-ex" id="al-vis">⚠ Exclusion — déficit visuel sévère</div></div>
+      <div class="fld"><label>Antécédents neurologiques</label>
+        <select id="f-neu" onchange="chkEx()"><option value="">—</option><option>Non</option><option value="x">Oui ⚠</option></select>
+        <div class="alert-ex" id="al-neu">⚠ Exclusion — antécédents neurologiques</div></div>
+      <div class="fld"><label>Trouble psychiatrique traité</label>
+        <select id="f-psy" onchange="chkEx()"><option value="">—</option><option>Non</option><option value="x">Oui ⚠</option></select>
+        <div class="alert-ex" id="al-psy">⚠ Exclusion — trouble psychiatrique</div></div>
+      <div class="fld"><label>Score MoCA /30</label>
+        <input type="number" id="f-moca" min="0" max="30" oninput="chkEx()">
+        <div class="alert-ex" id="al-moca">⚠ Exclusion — MoCA &lt; 18</div></div>
+      <div class="fld"><label>Score GDS-15 /15</label>
+        <input type="number" id="f-gds" min="0" max="15" oninput="chkEx()">
+        <div class="alert-ex" id="al-gds">⚠ Attention — GDS ≥ 10</div></div>
+    </div>
+    <div id="inc-status" style="margin-top:10px;padding:8px 12px;border-radius:5px;background:#f8f9fa;font-size:13px;color:#666;border:1px solid #dee2e6">
+      En attente d'évaluation
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ctitle">&#128221; Consentement et notes</div>
+    <div class="g2">
+      <div class="fld"><label>Type de consentement</label>
+        <select id="f-cons"><option value="">—</option><option>Écrit signé</option><option>Oral + témoin (analphabète)</option><option>Empreinte + témoin</option></select></div>
+    </div>
+    <div class="fld" style="margin-top:8px"><label>Notes de l'évaluateur</label>
+      <textarea id="f-notes" placeholder="Observations sur le déroulement de la passation..."></textarea></div>
+  </div>
+
+  <div class="brow">
+    <button class="bp" onclick="goScores()">&#9654; Passer aux scores</button>
+    <button onclick="resetF()">&#8635; Réinitialiser</button>
+  </div>
+</div>
+
+<!-- SCORES -->
+<div class="sec" id="sec-scores">
+  <div style="font-size:12px;color:#666;margin-bottom:12px;padding:8px 12px;background:white;border-radius:5px;border:1px solid #dee2e6">
+    Participant : <strong id="sc-pid">—</strong> &nbsp;|&nbsp; Groupe : <strong id="sc-gr">—</strong>
+  </div>
+
+  <div class="card">
+    <div class="ctitle">Condition 1 — Évocation libre (دنومينيشن حرة)</div>
+    <div class="egrid" id="eg-libre"></div>
+    <div style="display:flex;justify-content:space-between;margin-top:10px;align-items:center">
+      <span style="font-size:12px;color:#666">Score évocation libre :</span>
+      <strong id="sl" style="font-size:16px;color:#0056b3">0 / 6</strong>
+    </div>
+    <div class="bar-wrap"><div class="bar" id="bl" style="width:0%;background:#0056b3"></div></div>
+  </div>
+
+  <div class="card">
+    <div class="ctitle">Condition 2 — Choix forcé (اختيار من 4)</div>
+    <div class="egrid" id="eg-force"></div>
+    <div style="display:flex;justify-content:space-between;margin-top:10px;align-items:center">
+      <span style="font-size:12px;color:#666">Score choix forcé :</span>
+      <strong id="sf" style="font-size:16px;color:#1a6b3c">0 / 6</strong>
+    </div>
+    <div class="bar-wrap"><div class="bar" id="bf" style="width:0%;background:#1a6b3c"></div></div>
+  </div>
+
+  <div class="total-box">
+    <span style="font-size:14px;color:#004085;font-weight:bold">Score total :</span>
+    <span id="st" style="font-size:28px;font-weight:bold;color:#004085">0 / 12</span>
+  </div>
+
+  <div class="card">
+    <div class="ctitle">Conditions de passation</div>
+    <div class="g3">
+      <div class="fld"><label>Durée (minutes)</label><input type="number" id="sc-dur" placeholder="45"></div>
+      <div class="fld"><label>Langue utilisée</label>
+        <select id="sc-lng"><option>Darija</option><option>Amazigh</option><option>Arabe classique</option><option>Mixte</option></select></div>
+      <div class="fld"><label>Passation complète</label>
+        <select id="sc-cpl"><option>Oui — complète</option><option>Non — interrompue</option></select></div>
+    </div>
+  </div>
+
+  <div class="brow">
+    <button class="bs" onclick="saveP()">&#128190; Enregistrer et synchroniser</button>
+    <button onclick="goTab('fiche')">&#8592; Retour fiche</button>
+  </div>
+</div>
+
+<!-- BASE -->
+<div class="sec" id="sec-base">
+  <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+    <span style="font-size:13px;color:#555"><strong id="bc">0</strong> participants enregistrés</span>
+    <select id="fg" onchange="renderT()" style="font-size:12px;padding:5px 10px;border:1px solid #ced4da;border-radius:5px">
+      <option value="">Tous groupes</option>
+      <option value="Jeunes adultes">Jeunes adultes</option>
+      <option value="Personnes âgées">Personnes âgées</option>
+    </select>
+    <select id="fi" onchange="renderT()" style="font-size:12px;padding:5px 10px;border:1px solid #ced4da;border-radius:5px">
+      <option value="">Tous statuts</option><option>Inclus</option><option>Exclu</option>
+    </select>
+    <button onclick="exportCSV()" class="bp" style="font-size:11px;padding:5px 12px">&#8659; Exporter CSV</button>
+    <button onclick="renderT()" style="font-size:11px;padding:5px 10px">&#8635; Actualiser</button>
+  </div>
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr>
+        <th>N°</th><th>Date</th><th>Âge</th><th>Sexe</th><th>Groupe</th>
+        <th>Alphab.</th><th>Libre /6</th><th>Forcé /6</th><th>Total /12</th><th>Statut</th><th>Action</th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- VISUALISATIONS -->
+<div class="sec" id="sec-viz">
+  <div class="g4" style="margin-bottom:14px">
+    <div class="sc-card"><div class="sc-num" id="v1">0</div><div class="sc-lbl">Total participants</div></div>
+    <div class="sc-card"><div class="sc-num" id="v2">0</div><div class="sc-lbl">Inclus</div></div>
+    <div class="sc-card"><div class="sc-num" id="v3">0</div><div class="sc-lbl">Jeunes adultes</div></div>
+    <div class="sc-card"><div class="sc-num" id="v4">0</div><div class="sc-lbl">Personnes âgées</div></div>
+  </div>
+  <div class="card">
+    <div class="ctitle">Scores moyens par groupe</div>
+    <div style="display:flex;gap:14px;margin-bottom:8px;font-size:12px;color:#555">
+      <span><span style="display:inline-block;width:10px;height:10px;background:#0056b3;border-radius:2px;margin-right:4px"></span>Jeunes adultes</span>
+      <span><span style="display:inline-block;width:10px;height:10px;background:#1a6b3c;border-radius:2px;margin-right:4px"></span>Personnes âgées</span>
+    </div>
+    <div style="position:relative;width:100%;height:220px"><canvas id="c1"></canvas></div>
+  </div>
+  <div class="g2" style="gap:12px">
+    <div class="card">
+      <div class="ctitle">Reconnaissance par émotion — évocation libre</div>
+      <div style="display:flex;gap:12px;margin-bottom:8px;font-size:12px;color:#555">
+        <span><span style="display:inline-block;width:10px;height:10px;background:#0056b3;border-radius:2px;margin-right:4px"></span>Jeunes</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#1a6b3c;border-radius:2px;margin-right:4px"></span>Âgés</span>
+      </div>
+      <div style="position:relative;width:100%;height:220px"><canvas id="c2"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="ctitle">Répartition par sexe</div>
+      <div style="display:flex;gap:12px;margin-bottom:8px;font-size:12px;color:#555">
+        <span><span style="display:inline-block;width:10px;height:10px;background:#534AB7;border-radius:2px;margin-right:4px"></span>Hommes</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#D4537E;border-radius:2px;margin-right:4px"></span>Femmes</span>
+      </div>
+      <div style="position:relative;width:100%;height:220px"><canvas id="c3"></canvas></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ctitle">Distribution des scores totaux /12</div>
+    <div style="position:relative;width:100%;height:190px"><canvas id="c4"></canvas></div>
+  </div>
+</div>
+
+<!-- CONFIGURATION -->
+<div class="sec" id="sec-cfg">
+  <div class="card">
+    <div class="ctitle">&#9729; Connexion JSONBin.io — Base de données cloud</div>
+    <div class="cfg-info">
+      <strong>Comment configurer :</strong><br>
+      1. Allez sur <strong>jsonbin.io</strong> &rarr; connectez-vous<br>
+      2. Menu gauche &rarr; <strong>Clés API</strong><br>
+      3. Copiez la <strong>Clé Maîtresse X</strong> (commence par $2a$10$...)<br>
+      4. Collez ci-dessous et cliquez <strong>Sauvegarder</strong><br>
+      5. L'ID du Bin sera créé automatiquement au 1er enregistrement
+    </div>
+    <div class="g2">
+      <div class="fld">
+        <label>Clé Maîtresse X (X-Master-Key)</label>
+        <input type="password" id="cfg-key" placeholder="$2a$10$...">
+      </div>
+      <div class="fld">
+        <label>ID du Bin (laissez vide = créé automatiquement)</label>
+        <input id="cfg-bin" placeholder="Sera généré automatiquement">
+      </div>
+    </div>
+    <div class="brow">
+      <button class="bp" onclick="saveCfg()">&#128190; Sauvegarder la configuration</button>
+      <button onclick="testCnx()">&#128268; Tester la connexion</button>
+      <button onclick="loadCloud()">&#9729; Charger depuis le cloud</button>
+    </div>
+    <div id="cfg-msg" style="margin-top:10px;font-size:13px;color:#555;padding:8px 12px;border-radius:5px;background:#f8f9fa;border:1px solid #dee2e6;display:none"></div>
+  </div>
+
+  <div class="card">
+    <div class="ctitle">&#128274; Sauvegarde locale (sans internet)</div>
+    <p style="font-size:12px;color:#666;margin-bottom:10px">Toutes les données sont aussi sauvegardées localement dans votre navigateur. Elles persistent même sans connexion.</p>
+    <div class="brow">
+      <button onclick="expJSON()">&#128196; Télécharger JSON (backup)</button>
+      <button onclick="document.getElementById('imp').click()">&#8679; Importer JSON</button>
+      <button class="bd" onclick="clearAll()">&#128465; Vider la base locale</button>
+    </div>
+    <input type="file" id="imp" accept=".json" style="display:none" onchange="impJSON(this)">
+  </div>
+</div>
+
+<script>
+const EMO=[
+  {k:'joie',f:'Joie',a:'الفرح'},
+  {k:'tristesse',f:'Tristesse',a:'الحزن'},
+  {k:'colere',f:'Colère',a:'الغضب'},
+  {k:'peur',f:'Peur',a:'الخوف'},
+  {k:'degout',f:'Dégoût',a:'الاشمئزاز'},
+  {k:'surprise',f:'Surprise',a:'الدهشة'}
+];
+let PP=[],PID=1,AKEY='',BID='',CH={};
+
+function load(){
+  try{
+    const d=JSON.parse(localStorage.getItem('etude_maroc_html')||'{}');
+    PP=d.p||[];PID=d.pid||1;AKEY=d.key||'';BID=d.bid||'';
+    if(AKEY)document.getElementById('cfg-key').value=AKEY;
+    if(BID)document.getElementById('cfg-bin').value=BID;
+  }catch(e){}
+}
+function save(){
+  localStorage.setItem('etude_maroc_html',JSON.stringify({p:PP,pid:PID,key:AKEY,bid:BID}));
+}
+function setSy(state,txt){
+  const b=document.getElementById('sync-badge');
+  b.className='sync'+(state==='ok'?' ok':state==='sv'?' saving':'');
+  b.textContent='☁ '+txt;
+}
+async function syncUp(){
+  if(!AKEY){setSy('','Local uniquement');return;}
+  setSy('sv','Sauvegarde en cours...');
+  try{
+    const body=JSON.stringify({p:PP,pid:PID});
+    if(!BID){
+      const r=await fetch('https://api.jsonbin.io/v3/b',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-Master-Key':AKEY,'X-Bin-Name':'etude-reco-maroc'},
+        body
+      });
+      const j=await r.json();
+      BID=j.metadata?.id||'';
+      document.getElementById('cfg-bin').value=BID;
+      save();
+    } else {
+      await fetch('https://api.jsonbin.io/v3/b/'+BID,{
+        method:'PUT',
+        headers:{'Content-Type':'application/json','X-Master-Key':AKEY},
+        body
+      });
+    }
+    setSy('ok','Synchronisé à '+new Date().toLocaleTimeString());
+  }catch(e){setSy('','Erreur de synchronisation');}
+}
+async function loadCloud(){
+  if(!AKEY||!BID){showMsg('Configurez la clé API et l\'ID du Bin d\'abord.','#721c24');return;}
+  setSy('sv','Chargement...');
+  try{
+    const r=await fetch('https://api.jsonbin.io/v3/b/'+BID+'/latest',{headers:{'X-Master-Key':AKEY}});
+    const j=await r.json();
+    PP=j.record?.p||[];PID=j.record?.pid||1;
+    save();setSy('ok','Chargé depuis le cloud');
+    renderAll();alert('✓ '+PP.length+' participants chargés depuis le cloud !');
+  }catch(e){setSy('','Erreur');alert('Erreur : '+e.message);}
+}
+async function testCnx(){
+  const k=document.getElementById('cfg-key').value.trim();
+  if(!k){alert('Entrez une clé API d\'abord');return;}
+  showMsg('Test en cours...','#555');
+  try{
+    const r=await fetch('https://api.jsonbin.io/v3/b',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Master-Key':k,'X-Bin-Name':'test-connexion'},
+      body:JSON.stringify({test:true})
+    });
+    if(r.ok){showMsg('✓ Connexion réussie ! Clé API valide.','#155724');}
+    else{showMsg('✗ Clé API invalide ou erreur.','#721c24');}
+  }catch(e){showMsg('✗ Erreur réseau : '+e.message,'#721c24');}
+}
+function showMsg(txt,color){
+  const el=document.getElementById('cfg-msg');
+  el.style.display='block';el.style.color=color;el.textContent=txt;
+}
+function saveCfg(){
+  AKEY=document.getElementById('cfg-key').value.trim();
+  BID=document.getElementById('cfg-bin').value.trim();
+  save();showMsg('✓ Configuration sauvegardée avec succès !','#155724');
+}
+function pid(){return 'P'+String(PID).padStart(3,'0');}
+function majG(){
+  const age=parseInt(document.getElementById('f-age').value)||0;
+  const b=document.getElementById('gbadge');
+  if(age>=18&&age<=35){b.style.cssText='background:#cce5ff;color:#004085;padding:5px 12px;border-radius:5px;font-size:12px;font-weight:bold;display:inline-block;margin-top:4px';b.textContent='Groupe 1 — Jeunes adultes (18–35 ans)';}
+  else if(age>=60){b.style.cssText='background:#d4edda;color:#155724;padding:5px 12px;border-radius:5px;font-size:12px;font-weight:bold;display:inline-block;margin-top:4px';b.textContent='Groupe 2 — Personnes âgées (60 ans et +)';}
+  else if(age>0){b.style.cssText='background:#fff3cd;color:#856404;padding:5px 12px;border-radius:5px;font-size:12px;font-weight:bold;display:inline-block;margin-top:4px';b.textContent='Hors groupe cible ('+age+' ans) — vérifier';}
+  else{b.style.cssText='background:#f8f9fa;color:#666;padding:5px 12px;border-radius:5px;font-size:12px;display:inline-block;margin-top:4px';b.textContent='— selon l\'âge —';}
+}
+function chkEx(){
+  const ch=[['f-vis','al-vis',v=>v==='x'],['f-neu','al-neu',v=>v==='x'],['f-psy','al-psy',v=>v==='x'],['f-moca','al-moca',v=>v!==''&&parseInt(v)<18],['f-gds','al-gds',v=>v!==''&&parseInt(v)>=10]];
+  let ex=false;
+  ch.forEach(([id,al,test])=>{
+    const v=document.getElementById(id).value;
+    const sh=test(v);
+    document.getElementById(al).style.display=sh?'block':'none';
+    if(id!=='f-gds'&&sh) ex=true;
+  });
+  const s=document.getElementById('inc-status');
+  if(ex){s.style.cssText='margin-top:10px;padding:8px 12px;border-radius:5px;background:#f8d7da;font-size:13px;color:#721c24;border:1px solid #f5c6cb;font-weight:bold';s.textContent='✗ EXCLU — critère non rempli';}
+  else{s.style.cssText='margin-top:10px;padding:8px 12px;border-radius:5px;background:#d4edda;font-size:13px;color:#155724;border:1px solid #c3e6cb;font-weight:bold';s.textContent='✓ INCLUS — tous les critères sont remplis';}
+}
+function getGrp(){
+  const a=parseInt(document.getElementById('f-age').value)||0;
+  if(a>=18&&a<=35) return 'Jeunes adultes';
+  if(a>=60) return 'Personnes âgées';
+  return 'Autre';
+}
+function getInc(){
+  const v=document.getElementById('f-vis').value;
+  const n=document.getElementById('f-neu').value;
+  const ps=document.getElementById('f-psy').value;
+  const m=document.getElementById('f-moca').value;
+  return(v==='x'||n==='x'||ps==='x'||(m!==''&&parseInt(m)<18))?'Exclu':'Inclus';
+}
+function buildEmo(){
+  ['libre','force'].forEach(c=>{
+    document.getElementById('eg-'+c).innerHTML=EMO.map(e=>`
+      <div class="ecard">
+        <div class="ename">${e.f}</div>
+        <div class="ear">${e.a}</div>
+        <select id="${c}_${e.k}" onchange="majSc()">
+          <option value="">—</option>
+          <option value="1">✓ Correct</option>
+          <option value="0">✗ Incorrect</option>
+        </select>
+      </div>`).join('');
+  });
+}
+function majSc(){
+  let l=0,f=0;
+  EMO.forEach(e=>{
+    if(document.getElementById('libre_'+e.k).value==='1') l++;
+    if(document.getElementById('force_'+e.k).value==='1') f++;
+  });
+  document.getElementById('sl').textContent=l+' / 6';
+  document.getElementById('sf').textContent=f+' / 6';
+  document.getElementById('st').textContent=(l+f)+' / 12';
+  document.getElementById('bl').style.width=Math.round(l/6*100)+'%';
+  document.getElementById('bf').style.width=Math.round(f/6*100)+'%';
+}
+function goScores(){
+  if(!document.getElementById('f-age').value){alert('Veuillez renseigner l\'âge du participant');return;}
+  document.getElementById('sc-pid').textContent=document.getElementById('f-pid').value;
+  document.getElementById('sc-gr').textContent=getGrp();
+  goTab('scores');
+}
+async function saveP(){
+  const age=parseInt(document.getElementById('f-age').value);
+  if(!age){alert('L\'âge est obligatoire');return;}
+  let l=0,f=0;const sc={};
+  EMO.forEach(e=>{
+    const lv=document.getElementById('libre_'+e.k).value;
+    const fv=document.getElementById('force_'+e.k).value;
+    sc['l_'+e.k]=lv===''?null:parseInt(lv);
+    sc['f_'+e.k]=fv===''?null:parseInt(fv);
+    if(lv==='1') l++;if(fv==='1') f++;
+  });
+  const p={
+    num:document.getElementById('f-pid').value,
+    date:document.getElementById('f-date').value,
+    lieu:document.getElementById('f-lieu').value,
+    eval:document.getElementById('f-eval').value,
+    age,sexe:document.getElementById('f-sexe').value,
+    groupe:getGrp(),
+    res:document.getElementById('f-res').value,
+    prov:document.getElementById('f-prov').value,
+    etat:document.getElementById('f-etat').value,
+    vie:document.getElementById('f-vie').value,
+    alpha:document.getElementById('f-alpha').value,
+    scol:document.getElementById('f-scol').value,
+    lang:document.getElementById('f-lang').value,
+    prof:document.getElementById('f-prof').value,
+    sante:document.getElementById('f-sante').value,
+    vis:document.getElementById('f-vis').value,
+    neu:document.getElementById('f-neu').value,
+    psy:document.getElementById('f-psy').value,
+    moca:document.getElementById('f-moca').value,
+    gds:document.getElementById('f-gds').value,
+    cons:document.getElementById('f-cons').value,
+    inc:getInc(),
+    notes:document.getElementById('f-notes').value,
+    ...sc,sl:l,sf:f,st:l+f,
+    dur:document.getElementById('sc-dur').value,
+    lng:document.getElementById('sc-lng').value,
+    cpl:document.getElementById('sc-cpl').value,
+    ts:new Date().toISOString()
+  };
+  PP.push(p);PID++;
+  save();await syncUp();
+  renderAll();
+  alert('✓ Participant '+p.num+' enregistré avec succès !\nScore total : '+p.st+' / 12\n\n'+
+        (AKEY?'Données synchronisées sur JSONBin ☁':'Données sauvegardées localement'));
+  resetF();goTab('base');
+}
+function renderAll(){
+  renderT();renderViz();
+  document.getElementById('hdr-sub').textContent=PP.length+' participant(s) enregistré(s)';
+  document.getElementById('bc').textContent=PP.length;
+}
+function renderT(){
+  const fg=document.getElementById('fg').value;
+  const fi=document.getElementById('fi').value;
+  const rows=PP.filter(p=>(!fg||p.groupe===fg)&&(!fi||p.inc===fi));
+  const b=document.getElementById('tbody');
+  if(!rows.length){b.innerHTML='<tr><td colspan="11" style="text-align:center;padding:2rem;color:#999">Aucun participant enregistré</td></tr>';return;}
+  b.innerHTML=rows.map(p=>`<tr>
+    <td><strong>${p.num}</strong></td>
+    <td>${p.date||'—'}</td><td>${p.age}</td>
+    <td>${(p.sexe||'—').split(' — ')[0]}</td>
+    <td><span class="badge ${p.groupe==='Personnes âgées'?'b-gr':'b-inf'}">${p.groupe}</span></td>
+    <td>${(p.alpha||'—').split(' — ')[0]}</td>
+    <td>${p.sl??'—'}</td><td>${p.sf??'—'}</td>
+    <td><strong>${p.st??'—'}</strong></td>
+    <td><span class="badge ${p.inc==='Inclus'?'b-ok':'b-no'}">${p.inc}</span></td>
+    <td><button onclick="delP('${p.num}')" style="font-size:11px;padding:3px 8px;color:#721c24;border-color:#f5c6cb">🗑</button></td>
+  </tr>`).join('');
+}
+async function delP(num){
+  if(!confirm('Supprimer le participant '+num+' ?')) return;
+  PP=PP.filter(p=>p.num!==num);save();await syncUp();renderAll();
+}
+function moy(arr){
+  const v=arr.filter(x=>x!==null&&x!==undefined&&x!=='');
+  return v.length?parseFloat((v.reduce((a,b)=>a+parseFloat(b),0)/v.length).toFixed(2)):0;
+}
+function renderViz(){
+  const inc=PP.filter(p=>p.inc==='Inclus');
+  const J=inc.filter(p=>p.groupe==='Jeunes adultes');
+  const A=inc.filter(p=>p.groupe==='Personnes âgées');
+  document.getElementById('v1').textContent=PP.length;
+  document.getElementById('v2').textContent=inc.length;
+  document.getElementById('v3').textContent=J.length;
+  document.getElementById('v4').textContent=A.length;
+  const def={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}};
+  if(CH.c1) CH.c1.destroy();
+  CH.c1=new Chart(document.getElementById('c1'),{type:'bar',data:{
+    labels:['Libre /6','Forcé /6','Total /12'],
+    datasets:[
+      {label:'Jeunes adultes',data:[moy(J.map(p=>p.sl)),moy(J.map(p=>p.sf)),moy(J.map(p=>p.st))],backgroundColor:'#0056b3',borderWidth:0},
+      {label:'Personnes âgées',data:[moy(A.map(p=>p.sl)),moy(A.map(p=>p.sf)),moy(A.map(p=>p.st))],backgroundColor:'#1a6b3c',borderWidth:0}
+    ]},options:{...def,scales:{y:{beginAtZero:true,max:12,ticks:{stepSize:2}},x:{ticks:{autoSkip:false}}}}});
+  if(CH.c2) CH.c2.destroy();
+  CH.c2=new Chart(document.getElementById('c2'),{type:'bar',data:{
+    labels:EMO.map(e=>e.f),
+    datasets:[
+      {label:'Jeunes',data:EMO.map(e=>Math.round(moy(J.map(p=>p['l_'+e.k]))*100)),backgroundColor:'#0056b3',borderWidth:0},
+      {label:'Âgés',data:EMO.map(e=>Math.round(moy(A.map(p=>p['l_'+e.k]))*100)),backgroundColor:'#1a6b3c',borderWidth:0}
+    ]},options:{...def,scales:{y:{beginAtZero:true,max:100,ticks:{callback:v=>v+'%'}},x:{ticks:{autoSkip:false,maxRotation:30}}}}});
+  const h=inc.filter(p=>p.sexe&&p.sexe.includes('Homme')).length;
+  const f=inc.filter(p=>p.sexe&&p.sexe.includes('Femme')).length;
+  if(CH.c3) CH.c3.destroy();
+  CH.c3=new Chart(document.getElementById('c3'),{type:'doughnut',data:{
+    labels:['Hommes','Femmes'],datasets:[{data:[h||0,f||0],backgroundColor:['#534AB7','#D4537E'],borderWidth:2}]},
+    options:{...def,cutout:'60%'}});
+  const dist=Array(13).fill(0);
+  inc.forEach(p=>{const s=parseInt(p.st);if(!isNaN(s)) dist[s]++;});
+  if(CH.c4) CH.c4.destroy();
+  CH.c4=new Chart(document.getElementById('c4'),{type:'bar',data:{
+    labels:Array.from({length:13},(_,i)=>String(i)),
+    datasets:[{data:dist,backgroundColor:'#EF9F27',borderWidth:0,label:'N participants'}]},
+    options:{...def,scales:{x:{title:{display:true,text:'Score total /12'}},y:{beginAtZero:true,ticks:{stepSize:1}}}}});
+}
+function exportCSV(){
+  if(!PP.length){alert('Aucune donnée à exporter');return;}
+  const keys=['num','date','lieu','eval','age','sexe','groupe','res','prov','etat','vie','alpha','scol','lang','prof','sante','vis','neu','psy','moca','gds','cons','inc',...EMO.map(e=>'l_'+e.k),...EMO.map(e=>'f_'+e.k),'sl','sf','st','dur','lng','cpl','notes'];
+  const csv='\uFEFF'+keys.join(';')+'\n'+PP.map(p=>keys.map(k=>`"${(p[k]??'').toString().replace(/"/g,'""')}"`).join(';')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download='donnees_etude_'+new Date().toISOString().split('T')[0]+'.csv';
+  a.click();
+}
+function expJSON(){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify({p:PP,pid:PID},null,2)],{type:'application/json'}));
+  a.download='backup_etude_'+new Date().toISOString().split('T')[0]+'.json';
+  a.click();
+}
+function impJSON(input){
+  const r=new FileReader();
+  r.onload=e=>{
+    try{const d=JSON.parse(e.target.result);PP=d.p||[];PID=d.pid||PP.length+1;save();renderAll();alert('✓ '+PP.length+' participants importés avec succès !');}
+    catch(e){alert('Fichier JSON invalide');}
+  };
+  r.readAsText(input.files[0]);
+}
+function clearAll(){
+  if(confirm('Supprimer TOUTES les données locales ? Cette action est irréversible.')){
+    PP=[];PID=1;save();renderAll();alert('Base de données vidée.');
+  }
+}
+function resetF(){
+  ['f-lieu','f-eval','f-age','f-res','f-prov','f-moca','f-gds','f-notes','sc-dur'].forEach(id=>document.getElementById(id).value='');
+  ['f-sexe','f-etat','f-vie','f-alpha','f-scol','f-lang','f-prof','f-sante','f-vis','f-neu','f-psy','f-cons'].forEach(id=>document.getElementById(id).value='');
+  ['al-vis','al-neu','al-psy','al-moca','al-gds'].forEach(id=>document.getElementById(id).style.display='none');
+  document.getElementById('f-pid').value=pid();
+  document.getElementById('f-date').value=new Date().toISOString().split('T')[0];
+  document.getElementById('gbadge').textContent='— selon l\'âge —';
+  document.getElementById('gbadge').style.cssText='background:#f8f9fa;color:#666;padding:5px 12px;border-radius:5px;font-size:12px;display:inline-block;margin-top:4px';
+  document.getElementById('inc-status').textContent='En attente d\'évaluation';
+  document.getElementById('inc-status').style.cssText='margin-top:10px;padding:8px 12px;border-radius:5px;background:#f8f9fa;font-size:13px;color:#666;border:1px solid #dee2e6';
+  buildEmo();majSc();
+}
+function goTab(name){
+  document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  document.getElementById('sec-'+name).classList.add('on');
+  const tabs=['fiche','scores','base','viz','cfg'];
+  document.querySelectorAll('.tab')[tabs.indexOf(name)].classList.add('on');
+  if(name==='viz') renderViz();
+  if(name==='base') renderT();
+}
+load();
+document.getElementById('f-pid').value=pid();
+document.getElementById('f-date').value=new Date().toISOString().split('T')[0];
+buildEmo();renderAll();
+</script>
+</body>
+</html>
